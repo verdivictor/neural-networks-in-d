@@ -9,8 +9,8 @@ import std.math;
 // XOR not modelable by a single neuron
 float[3][] train = [
     [0, 0, 0],
-    [0, 1, 1],
-    [1, 0, 1],
+    [0, 1, 0],
+    [1, 0, 0],
     [1, 1, 1],
 ];
 
@@ -26,6 +26,27 @@ float cost(float w1, float w2, float b) {
     }
     result /= train_len;
     return result;
+}
+
+void gcost(float w1, float w2, float b, float* dw1, float* dw2, float* db) {
+    *dw1 = 0;
+    *dw2 = 0;
+    *db  = 0;
+
+    size_t n = train.length;
+    for(size_t i = 0; i < n; i++) {
+        float xi = train[i][0];
+        float yi = train[i][1];
+        float zi = train[i][2];
+        float ai = sigmoid(xi*w1 * yi*w2 + b);
+        float dp = 2*(ai - zi)*ai*(1 - ai);
+        *dw1 += dp*xi;
+        *dw2 += dp*yi;
+        *db  += dp;
+    }
+    *dw1 /= n;
+    *dw2 /= n;
+    *db  /= n;
 }
 
 float sigmoid(float x) {
@@ -50,12 +71,10 @@ void main()
 
     float eps = 1e-1;
     float rate = 1e-1;
-    //writefln("w1 = %s, w2 = %s, b = %s, cost = %s", w1, w2, b, cost(w1, w2, b));
 
     for (int i =0; i < 100000; i++) {
 
         float c = cost(w1, w2, b);
-        //writefln("%s", c);
         float dw1 = (cost(w1 + eps, w2, b) - c) / eps;
         float dw2 = (cost(w1, w2 + eps, b) - c) / eps;
         float db = (cost(w1, w2, b + eps) - c) / eps;
@@ -64,7 +83,16 @@ void main()
         w2 -= rate*dw2;
         b  -= rate*db;
     }
-    //writefln("w1 = %s, w2 = %s, b = %s, cost = %s", w1, w2, b, cost(w1, w2, b));
+
+    float dw1, dw2, db;
+
+    /*for (int i =0; i < 100000; i++) {
+        gcost(w1, w2, b, &dw1, &dw2, &db);
+
+        w1 -= rate*dw1;
+        w2 -= rate*dw2;
+        b  -= rate*db;
+    }*/
 
     for(int i = 0; i < 2; i++) {
         for(int j = 0; j < 2; j++) {

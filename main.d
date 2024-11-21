@@ -3,6 +3,7 @@ import nn;
 
 int main() 
 {
-    test();
+    //test();
+    adder();
     return 0;
 }
