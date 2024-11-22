@@ -28,60 +28,12 @@ float rand_float(float low, float high, ref Random rnd)
     return uniform(low, high, rnd);
 }
 
+/**
+    MAT FUNCTIONS
+**/
+
 ref float MAT_AT(Mat m, size_t i, size_t j) {
     return (*(m.es + i*m.stride + j));
-}
-
-Mat NN_OUTPUT(NN nn) {
-    return nn.as[nn.count];
-}
-
-void nn_print(NN nn) {
-    
-    writefln("nn = [");
-
-    mat_print(nn.as[0], "a0", 4);
-    for(int i = 0; i < nn.count; i++) {
-        mat_print(nn.ws[i], format("w%s", i+1), 4);
-        mat_print(nn.bs[i], format("b%s", i+1), 4);
-        mat_print(nn.as[i + 1], format("a%s", i+1), 4);
-    }
-    writefln("]");
-}
-
-void nn_rand(NN nn, ref Random rnd, float low, float high) {
-
-    for(int i = 0; i < nn.count; i++) {
-        mat_rand(nn.ws[i], rnd, low, high);
-        mat_rand(nn.bs[i], rnd, low, high);
-        mat_rand(nn.as[i + 1], rnd, low, high);
-    }
-}
-
-NN nn_alloc(ulong* arch, ulong arch_count) {
-    NN nn;
-
-    assert(arch[0] > 0, "Inputs should have non-zero columns");
-    nn.count = arch_count - 1;
-
-    nn.ws = cast(Mat*) malloc(nn.count*(*nn.ws).sizeof);
-    assert(nn.ws != null, "Null nn weight matrixes");
-    nn.bs = cast(Mat*) malloc(nn.count*(*nn.bs).sizeof);
-    assert(nn.bs != null, "Null nn bias matrixes");
-    nn.as = cast(Mat*) malloc((nn.count + 1)*(*nn.as).sizeof);
-    assert(nn.as != null, "Null nn activation matrixes");
-
-    nn.as[0] = mat_alloc(1, arch[0]);
-
-    for(int i = 0; i < nn.count; i++) {
-        nn.ws[i] = mat_alloc(nn.as[i].cols, arch[i + 1]);
-        nn.bs[i] = mat_alloc(1, arch[i + 1]);
-        nn.as[i + 1] = mat_alloc(1, arch[i + 1]);
-        mat_fill(nn.ws[i], 0);
-        mat_fill(nn.bs[i], 1);
-        mat_fill(nn.as[i + 1], 2);
-    }
-    return nn;
 }
 
 Mat mat_row(Mat m, size_t row) {
@@ -113,7 +65,6 @@ void mat_dot(Mat dst, Mat a, Mat b) {
     
     assert(a.rows == dst.rows, "Invalid dst matrix, rows of dst not equal to rows of a");
     assert(b.cols == dst.cols, "Invalid dst matrix, cols of dst not equal to cols of b");
-
 
     for(int i = 0; i < dst.rows; i++) {
         for(int j = 0; j < dst.cols; j++) {
@@ -188,26 +139,60 @@ void mat_sig(Mat m) {
     }
 }
 
-float cost_nn(NN nn, Mat ti, Mat to) {
+/**
+    NN FUNCTIONS
+**/
 
-    assert(ti.rows == to.rows);
-    assert(to.cols == NN_OUTPUT(nn).cols);
-    ulong n = ti.rows;
+Mat NN_OUTPUT(NN nn) {
+    return nn.as[nn.count];
+}
 
-    float c = 0.0f;
-    for(size_t i = 0; i < n; i++) {
-        Mat x = mat_row(ti, i);
-        Mat y = mat_row(to, i);
-        mat_copy(nn.as[0], x);
-        forward_nn(nn);
+void nn_print(NN nn) {
+    
+    writefln("nn = [");
 
-        ulong q = to.cols;
-        for (int j = 0; j < q; j++) {
-            float d = (MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(y, 0, j));
-            c += d*d;
-        }
+    mat_print(nn.as[0], "a0", 4);
+    for(int i = 0; i < nn.count; i++) {
+        mat_print(nn.ws[i], format("w%s", i+1), 4);
+        mat_print(nn.bs[i], format("b%s", i+1), 4);
+        mat_print(nn.as[i + 1], format("a%s", i+1), 4);
     }
-    return c/n;
+    writefln("]");
+}
+
+void nn_rand(NN nn, ref Random rnd, float low, float high) {
+
+    for(int i = 0; i < nn.count; i++) {
+        mat_rand(nn.ws[i], rnd, low, high);
+        mat_rand(nn.bs[i], rnd, low, high);
+        mat_rand(nn.as[i + 1], rnd, low, high);
+    }
+}
+
+NN nn_alloc(ulong* arch, ulong arch_count) {
+    NN nn;
+
+    assert(arch[0] > 0, "Inputs should have non-zero columns");
+    nn.count = arch_count - 1;
+
+    nn.ws = cast(Mat*) malloc(nn.count*(*nn.ws).sizeof);
+    assert(nn.ws != null, "Null nn weight matrixes");
+    nn.bs = cast(Mat*) malloc(nn.count*(*nn.bs).sizeof);
+    assert(nn.bs != null, "Null nn bias matrixes");
+    nn.as = cast(Mat*) malloc((nn.count + 1)*(*nn.as).sizeof);
+    assert(nn.as != null, "Null nn activation matrixes");
+
+    nn.as[0] = mat_alloc(1, arch[0]);
+
+    for(int i = 0; i < nn.count; i++) {
+        nn.ws[i] = mat_alloc(nn.as[i].cols, arch[i + 1]);
+        nn.bs[i] = mat_alloc(1, arch[i + 1]);
+        nn.as[i + 1] = mat_alloc(1, arch[i + 1]);
+        mat_fill(nn.ws[i], 0);
+        mat_fill(nn.bs[i], 1);
+        mat_fill(nn.as[i + 1], 2);
+    }
+    return nn;
 }
 
 void nn_zero(NN nn) {
@@ -219,7 +204,29 @@ void nn_zero(NN nn) {
     mat_fill(nn.as[nn.count], 0);
 }
 
-void forward_nn(NN nn) {
+float cost(NN nn, Mat ti, Mat to) {
+
+    assert(ti.rows == to.rows);
+    assert(to.cols == NN_OUTPUT(nn).cols);
+    ulong n = ti.rows;
+
+    float c = 0.0f;
+    for(size_t i = 0; i < n; i++) {
+        Mat x = mat_row(ti, i);
+        Mat y = mat_row(to, i);
+        mat_copy(nn.as[0], x);
+        forward(nn);
+
+        ulong q = to.cols;
+        for (int j = 0; j < q; j++) {
+            float d = (MAT_AT(NN_OUTPUT(nn), 0, j) - MAT_AT(y, 0, j));
+            c += d*d;
+        }
+    }
+    return c/n;
+}
+
+void forward(NN nn) {
     for(int i = 0; i < nn.count; i++) {
         mat_dot(nn.as[i + 1], nn.as[i], nn.ws[i]);
         mat_sum(nn.as[i + 1], nn.bs[i]);
@@ -227,16 +234,16 @@ void forward_nn(NN nn) {
     }
 }
 
-void finite_diff_nn(NN nn, NN g, float eps, Mat ti, Mat to)
+void finite_diff(NN nn, NN g, float eps, Mat ti, Mat to)
 {    
-    float c = cost_nn(nn, ti, to);
+    float c = cost(nn, ti, to);
     float saved;
     for(int i=0; i < nn.count; i++) {
         for(int j=0; j < nn.ws[i].rows; j++) {
             for(int k=0; k < nn.ws[i].cols; k++) {
                 saved = MAT_AT(nn.ws[i], j, k);
                 MAT_AT(nn.ws[i], j, k) += eps;
-                MAT_AT(g.ws[i], j, k) = (cost_nn(nn, ti, to) - c)/eps;
+                MAT_AT(g.ws[i], j, k) = (cost(nn, ti, to) - c)/eps;
                 MAT_AT(nn.ws[i], j, k) = saved;           
             }
         }
@@ -244,24 +251,25 @@ void finite_diff_nn(NN nn, NN g, float eps, Mat ti, Mat to)
             for(int k=0; k < nn.bs[i].cols; k++) {
                 saved = MAT_AT(nn.bs[i], j, k);
                 MAT_AT(nn.bs[i], j, k) += eps;
-                MAT_AT(g.bs[i], j, k) = (cost_nn(nn, ti, to) - c)/eps;
+                MAT_AT(g.bs[i], j, k) = (cost(nn, ti, to) - c)/eps;
                 MAT_AT(nn.bs[i], j, k) = saved;           
             }
         }
     }
 }
 
-void nn_backprop(NN nn, NN g, Mat ti, Mat to)
+void backprop(NN nn, NN g, Mat ti, Mat to)
 {
     assert(ti.rows == to.rows);
     size_t n = ti.rows;
     assert(NN_OUTPUT(nn).cols == to.cols);
 
     nn_zero(g);
+    // NN layer
     for(size_t i = 0; i < n; i++) {
         mat_copy(nn.as[0], mat_row(ti, i));
-        forward_nn(nn);
-        
+        forward(nn);
+
         for(size_t j = 0; j <= nn.count; j++) {
             mat_fill(g.as[j], 0);
         }
@@ -274,12 +282,12 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
             for(size_t j = 0; j < nn.as[l].cols; j++) {
                 float a = MAT_AT(nn.as[l], 0, j);
                 float da = MAT_AT(g.as[l], 0, j);
-                MAT_AT(g.bs[l - 1], 0, j) += 2*da*a*(1-a);
+                MAT_AT(g.bs[l - 1], 0, j) += 4*da*a*(1-a);
                 for(size_t k = 0; k < nn.as[l - 1].cols; k++) {
                     float pa = MAT_AT(nn.as[l-1], 0, k);
                     float w = MAT_AT(nn.ws[l-1], k, j);
-                    MAT_AT(g.ws[l - 1], k, j) += 2*da*a*(1-a)*pa;
-                    MAT_AT(g.as[l - 1], k, j) += 2*da*a*(1-a)*w;
+                    MAT_AT(g.ws[l - 1], k, j) += 4*da*a*(1-a)*pa;
+                    MAT_AT(g.as[l - 1], 0, j) += 4*da*a*(1-a)*w;
                 }
             }
         }
@@ -299,7 +307,7 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to)
     }
 }
 
-void learn_nn(NN nn, NN g, float rate)
+void learn(NN nn, NN g, float rate)
 {
     for (int i = 0; i < nn.count; i++) {
         for (int j = 0; j < nn.ws[i].rows; j++) {
@@ -315,7 +323,30 @@ void learn_nn(NN nn, NN g, float rate)
     }
 }
 
-void test() {
+/*void test() {
+
+    float[] da = [
+        1, 2,
+        3, 4
+    ];
+
+    float[] db = [
+        1, 7,
+        -6, -43
+    ];
+
+    Mat a = mat_alloc(2, 2);
+    Mat b = mat_alloc(2, 2);
+
+    a.es = da.ptr;
+    b.es = db.ptr;
+
+    Mat dst = mat_alloc(2, 2);
+    mat_dot(dst, b, b);
+    mat_print(dst, "dst", 0);
+}*/
+
+/*void test() {
     auto rnd = Random(cast(int) Clock.currTime().toUnixTime());
     float[4] id_data = [1, 0, 0, 1];
 
@@ -360,23 +391,23 @@ void test() {
     NN g  = nn_alloc(arch.ptr, arch.length);
     nn_rand(nn, rnd, 0, 1);
 
-    writefln("cost: %s",cost_nn(nn, ti, to));
-    for(int i = 0; i < 20000; i++) {
-        //finite_diff_nn(nn, g, eps, ti, to);
-        nn_backprop(nn, g, ti, to);
-        learn_nn(nn, g, rate);
-        writefln("cost: %s", cost_nn(nn, ti, to));
+    writefln("cost: %s",cost(nn, ti, to));
+    for(int i = 0; i < 20000f; i++) {
+        //finite_diff(nn, g, eps, ti, to);
+        backprop(nn, g, ti, to);
+        learn(nn, g, rate);
+        writefln("cost: %s", cost(nn, ti, to));
     }
 
     for(ulong i = 0; i < 2; i++) {
         for(ulong j = 0; j < 2; j++) {
             MAT_AT(nn.as[0], 0, 0) = i;
             MAT_AT(nn.as[0], 0, 1) = j;
-            forward_nn(nn);
+            forward(nn);
             writefln("%s ^ %s = %s", i, j, MAT_AT(nn.as[arch.length - 1], 0, 0));
         }
     }
-}
+}*/
 
 void adder() {
     auto rnd = Random(cast(int) Clock.currTime().toUnixTime());
@@ -397,23 +428,35 @@ void adder() {
         }
         MAT_AT(to, i, BITS) = z >= n;    
     }
-    //mat_print(ti, "ti", 10);
-    //mat_print(to, "to", 10);
 
-    ulong[] arch = [2*BITS, BITS,BITS+1];
+    ulong[] arch = [2*BITS, BITS*4+1,BITS+1];
     NN nn = nn_alloc(arch.ptr, arch.length);
     NN g  = nn_alloc(arch.ptr, arch.length);
     nn_rand(nn, rnd, 0, 1);
-    nn_print(nn);
 
     float rate = 1;
 
-    writefln("cost = %s", cost_nn(nn, ti, to));
-    nn_print(nn);
-    for(size_t i = 0; i < 50*10000; i++) {
-        nn_backprop(nn, g, ti, to);
-        learn_nn(nn, g, rate);
-        writefln("%s: cost = %s", i, cost_nn(nn, ti, to));
+    writefln("cost = %s", cost(nn, ti, to));
+
+    for(size_t i = 0; i < 20000; i++) {
+        backprop(nn, g, ti, to);
+        learn(nn, g, rate);
+        writefln("%s: cost = %s", i, cost(nn, ti, to));
     }
-    //nn_print(g);
+
+    for(int x = 0; x < n; x++) {
+        for(int y = 0; y < n; y++) {
+            for(size_t j = 0; j < BITS; j++) {
+                MAT_AT(nn.as[0], 0, j)      = (x>>j)&1;
+                MAT_AT(nn.as[0], 0, j+BITS) = (y>>j)&1;
+            }
+            forward(nn);
+            size_t z = 0;
+            for(size_t j = 0; j < BITS; j++) {
+                size_t bit = MAT_AT(NN_OUTPUT(nn), 0, j) > 0.5f;
+                z |= bit<<j;
+            }
+            writefln("%s + %s = %s", x, y, z);
+        }
+    }
 }
